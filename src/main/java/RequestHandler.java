@@ -164,11 +164,11 @@ public class RequestHandler implements Runnable {
                     proxyToClientBw.flush();
                     return;
                 }
-            }
-            else {
+            } else {
                 int proxyLevel = 0;
 
                 Proxy[] proxies = getProxyList();
+                System.out.println("Using proxy: " + proxies[proxyLevel].toString());
                 URL remoteURL = new URL(urlString);
                 HttpURLConnection proxyToServerCon = (HttpURLConnection) remoteURL.openConnection(proxies[0]);
                 proxyToServerCon.setRequestProperty("Content-Type",
@@ -187,9 +187,9 @@ public class RequestHandler implements Runnable {
                     } catch (IOException e) {
                         int responseCode = proxyToServerCon.getResponseCode();
                         if (responseCode != 200) {
-                            System.out.println("Proxy Level: "+proxyLevel);
-                            System.out.println("Retries Left: "+(proxies.length-1));
-                            if (proxyLevel == proxies.length-1) {
+                            System.out.println("Proxy Level: " + proxyLevel);
+                            System.out.println("Retries Left: " + (proxies.length - 1));
+                            if (proxyLevel == proxies.length - 1) {
                                 System.out.println("No more proxies left to try");
                                 proxyToClientBw.write("Connection: close");
                                 proxyToClientBw.close();
@@ -205,6 +205,10 @@ public class RequestHandler implements Runnable {
                             proxyToServerCon.setDoOutput(true);
                             proxyLevel++;
                         }
+                    }
+                    if (proxyToServerCon.getResponseCode() == 200) {
+                        connFailed = true;
+                        break;
                     }
                 }
 
