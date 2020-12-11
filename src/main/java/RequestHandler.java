@@ -30,14 +30,7 @@ public class RequestHandler implements Runnable {
 
 
     /**
-     * Thread that is used to transmit data read from client to server when using HTTPS
-     * Reference to this is required so it can be closed once completed.
-     */
-    private Thread httpsClientToServer;
-
-
-    /**
-     * Creates a ReuqestHandler object capable of servicing HTTP(S) GET requests
+     * Creates a RequestHandler object capable of servicing HTTP(S) GET requests
      *
      * @param clientSocket socket connected to the client
      */
@@ -72,18 +65,19 @@ public class RequestHandler implements Runnable {
 
         // Parse out URL
 
-        System.out.println("Reuest Received " + requestString);
+        System.out.println("Request Received " + requestString);
         // Get the Request type
         String request = requestString.substring(0, requestString.indexOf(' '));
 
         // remove request type and space
-        String urlString = requestString.substring(requestString.indexOf(' ') + 1);
+        String urlString;
+        urlString = requestString.substring(requestString.indexOf(' ') + 1);
 
         // Remove everything past next space
         urlString = urlString.substring(0, urlString.indexOf(' '));
 
         // Prepend http:// if necessary to create correct URL
-        if (!urlString.substring(0, 4).equals("http")) {
+        if (!urlString.startsWith("http")) {
             String temp = "http://";
             urlString = temp + urlString;
         }
@@ -103,7 +97,7 @@ public class RequestHandler implements Runnable {
     /**
      * Sends the contents of the file specified by the urlString to the client
      *
-     * @param urlString URL ofthe file requested
+     * @param urlString URL of the file requested
      */
     private void sendNonCachedToClient(String urlString) {
         try {
@@ -113,7 +107,7 @@ public class RequestHandler implements Runnable {
             String fileExtension;
 
             // Get the type of file
-            fileExtension = urlString.substring(fileExtensionIndex, urlString.length());
+            fileExtension = urlString.substring(fileExtensionIndex);
 
             // Get the initial file name
             String fileName = urlString.substring(0, fileExtensionIndex);
@@ -213,21 +207,20 @@ public class RequestHandler implements Runnable {
                 }
 
                 int total = 0;
-                String requestData = "";
-
+                StringBuilder requestData = new StringBuilder();
                 String line = "HTTP/1.0 200 OK\n" +
                         "Proxy-agent: ProxyBridge/1.0\n" +
                         "\r\n";
                 proxyToClientBw.write(line);
                 total += line.length();
-                requestData += line;
+                requestData.append(line);
 
                 // Read from input stream between proxy and remote server
                 try {
                     while ((line = proxyToServerBR.readLine()) != null) {
                         proxyToClientBw.write(line);
                         total += line.length();
-                        requestData += line;
+                        requestData.append(line);
                     }
                 } catch (IOException e) {
                     proxyToServerBR.close();
@@ -281,9 +274,9 @@ public class RequestHandler implements Runnable {
      */
     private void handleHTTPSRequest(String urlString) {
         String url = urlString.substring(7);
-        String pieces[] = url.split(":");
+        String[] pieces = url.split(":");
         url = pieces[0];
-        int port = Integer.valueOf(pieces[1]);
+        int port = Integer.parseInt(pieces[1]);
 
         try {
             InetAddress address = InetAddress.getByName(url);
@@ -303,7 +296,7 @@ public class RequestHandler implements Runnable {
                     new ClientToServerHttpsTransmit(clientSocket.getInputStream(), proxyToServerSocket.getOutputStream());
 
             System.out.println("Starting new thread to handle client server communication.");
-            httpsClientToServer = new Thread(clientToServerHttps);
+            Thread httpsClientToServer = new Thread(clientToServerHttps);
             httpsClientToServer.start();
 
             try {
@@ -321,7 +314,7 @@ public class RequestHandler implements Runnable {
                     }
                 } while (read >= 0);
                 System.out.println("Total Recv: " + total);
-            } catch (SocketTimeoutException e) {
+            } catch (SocketTimeoutException ignored) {
 
             } catch (IOException e) {
                 e.printStackTrace();
@@ -340,7 +333,7 @@ public class RequestHandler implements Runnable {
                 proxyToClientBw.close();
             }
         } catch (SocketTimeoutException e) {
-            String line = "HTTP/1.0 504 Timeout Occured after 10s\n" +
+            String line = "HTTP/1.0 504 Timeout Occurred after 10s\n" +
                     "User-Agent: ProxyBridge/1.0\n" +
                     "\r\n";
             try {
@@ -361,7 +354,7 @@ public class RequestHandler implements Runnable {
      * asynchronously to reading data from server and transmitting
      * that data to the client.
      */
-    class ClientToServerHttpsTransmit implements Runnable {
+    static class ClientToServerHttpsTransmit implements Runnable {
         InputStream proxyToClientIS;
         OutputStream proxyToServerOS;
 
