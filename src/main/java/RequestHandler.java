@@ -160,7 +160,6 @@ public class RequestHandler implements Runnable {
                 }
             } else {
                 int proxyLevel = 0;
-
                 Proxy[] proxies = getProxyList();
                 System.out.println("Using proxy: " + proxies[proxyLevel].toString());
                 URL remoteURL = new URL(urlString);
@@ -273,17 +272,35 @@ public class RequestHandler implements Runnable {
      * @param urlString desired file to be transmitted over https
      */
     private void handleHTTPSRequest(String urlString) {
-        String url = urlString.substring(7);
-        String[] pieces = url.split(":");
-        url = pieces[0];
+        long count = urlString.chars().filter(ch -> ch == ':').count();
+        String[] pieces;
+        String url;
+        if (count == 1) {
+            pieces = urlString.split(":");
+            url = pieces[0];
+        } else {
+            url = urlString.substring(7);
+            pieces = url.split(":");
+            url = pieces[0];
+        }
         int port = Integer.parseInt(pieces[1]);
 
         try {
+            int proxyLevel = 0;
+            Proxy[] proxies = getProxyList();
+            System.out.println("Using proxy: " + proxies[proxyLevel].toString());
             InetAddress address = InetAddress.getByName(url);
-            Socket proxyToServerSocket = new Socket(address, port);
-            proxyToServerSocket.setSoTimeout(50000);
+            System.out.println("Connecting to "+address.toString());
+            Socket proxyToServerSocket = new Socket(proxies[0]);
+            SocketAddress socketAddress = new InetSocketAddress(address, port);
+            try {
+                proxyToServerSocket.connect(socketAddress);
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
 
-            // Send Connection established to the client
+            proxyToServerSocket.setSoTimeout(5000);
+
             String line = "HTTP/1.0 200 Connection established\r\n" +
                     "Proxy-Agent: ProxyBridge/1.0\r\n" +
                     "\r\n";
@@ -377,6 +394,7 @@ public class RequestHandler implements Runnable {
                 int total = 0;
                 do {
                     read = proxyToClientIS.read(buffer);
+                    System.out.println(buffer);
                     if (read > 0) {
                         total += read;
                         proxyToServerOS.write(buffer, 0, read);
@@ -386,11 +404,12 @@ public class RequestHandler implements Runnable {
                     }
                 } while (read >= 0);
                 System.out.println("Total Sent: " + total);
-            } catch (SocketTimeoutException ste) {
-                // TODO: handle exception
+            } catch (SocketException se) {
+                System.out.println("Socket sad");
+//                se.printStackTrace();
             } catch (IOException e) {
                 System.out.println("Proxy to client HTTPS read timed out");
-                e.printStackTrace();
+//                e.printStackTrace();
             }
         }
     }
